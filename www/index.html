@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>duckdb-wasm-local example</title>
+    <style type="text/css">
+     #feedback {
+	     margin-bottom: 1rem;
+	     font-style:italic;
+     }
+     
+     #results {
+	     max-height: 80vh;
+	     overflow:scroll;
+     }
+     
+    </style>
+  </head>
+  <body>
+      <div id="feedback">Loading DuckDB</div>
+      <div>
+	  <input type="text" id="q" value="" placeholder="" />
+	  <button id="submit" type="submit" disabled="disabled">Search</button>
+	  <div id="results">
+	  </div>
+      </div>
+
+
+      <script>
+
+	 var input = document.getElementById("q");
+	 input.value = "";
+       
+       const getDb = async () => {
+           const duckdb = window.duckdbduckdbWasm;
+           // @ts-ignore
+           if (window._db) return window._db;
+	   
+           const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
+	   
+           // Select a bundle based on browser checks
+           const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
+	   
+           const worker_url = URL.createObjectURL(
+               new Blob([`importScripts("${bundle.mainWorker}");`], {
+		   type: "text/javascript",
+               })
+           );
+	   
+           // Instantiate the asynchronus version of DuckDB-wasm
+           const worker = new Worker(worker_url);
+           // const logger = null //new duckdb.ConsoleLogger();
+           const logger = new duckdb.ConsoleLogger();
+           const db = new duckdb.AsyncDuckDB(logger, worker);
+           await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+           URL.revokeObjectURL(worker_url);
+           window._db = db;
+           return db;
+       };
+      </script>
+      
+      <script type="module">
+       // import * as duckdbduckdbWasm from "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.1-dev106.0/+esm";
+       import * as duckdbduckdbWasm from "./duckdb-wasm-local/duckdb-wasm.js"
+       
+       window.duckdbduckdbWasm = duckdbduckdbWasm;
+       
+       var fb = document.getElementById("feedback");
+       
+       getDb().then(async (db) => {
+
+	   // Need to fix CORS stuff before this will work...
+	   
+	   /*
+	      fetch("https://static.sfomuseum.org/parquet/index.json").then((rsp) => {
+	      console.log("INDEX", rsp);
+	      }).catch((err) => {
+	      console.log("SAD", err);
+	      });
+	    */
+
+
+	   // en-CA is important in order to get YYYY-MM-dd formatting. Go, Canada!
+	   const dt_formatter = new Intl.DateTimeFormat('en-CA', {
+	       year: 'numeric',
+	       month: '2-digit',
+	       day: '2-digit',
+	       timeZone: 'America/Los_Angeles',		    
+	   });	   
+
+	   const num_formatter = new Intl.NumberFormat();
+	   
+	   fb.innerText = "Connecting to database";
+	   
+           const conn = await db.connect();
+	   
+	   fb.innerText = "Setting up search table";
+	   
+	   await conn.query("CREATE TABLE search AS SELECT \"wof:id\" AS id, \"flysfo:journey\" AS journey, \"flysfo:flight_number\" AS flight_number, \"icao:aircraft\" AS aircraft, \"icao:airline\" AS airline, \"flysfo:date\" AS date FROM read_parquet('https://static.sfomuseum.org/parquet/sfomuseum-data-flights-2025-01.parquet')");
+
+	   fb.innerText = "Setting up database PRAGMA";	   
+	   
+	   await conn.query("PRAGMA create_fts_index('search', 'id', 'journey', 'aircraft', 'airline', 'flight_number', 'date')");
+	   
+	   fb.innerText = "Ready to search";
+	   
+	   var input = document.getElementById("q");
+	   input.value = "";
+	   
+	   var b = document.getElementById("submit");
+	   b.removeAttribute("disabled");
+	   
+	   b.onclick = async function(e){
+	       
+	       var q = input.value;
+	       
+	       var html_results = document.getElementById("results");
+	       html_results.innerText = "";
+	       
+	       fb.innerText = "Performing search";
+	       
+	       const search_results = await conn.query("SELECT fts_main_search.match_bm25(id, '" + q + "') AS score, id, journey, flight_number, date FROM search WHERE score IS NOT NULL ORDER BY score DESC");
+
+	       var count_results = search_results.toArray().length;
+
+	       if (! count_results){
+		   fb.innerText = "No results found. Ready to search";
+		   return false;
+	       }
+	       
+	       var html_list = document.createElement("ul");
+
+	       switch (count_results) {
+		   case 1:
+		       fb.innerText = "Compiling only result";
+		       break;
+		   default:
+		       fb.innerText = "Compiling " + count_results + " results";
+		       break;
+	       }
+	       
+	       for (const row of search_results) {
+		   
+		   if (! row.journey){
+		       continue;
+		   }
+
+		   var id = row.id;		 
+		   
+		   var href = "https://millsfield.sfomuseum.org/flights/" + encodeURIComponent(id);
+		   
+		   var link = document.createElement("a");
+		   link.setAttribute("target", "millsfield");
+		   link.setAttribute("href", href);
+		   link.appendChild(document.createTextNode(row.flight_number));
+		   
+		   var item = document.createElement("li");
+		   item.appendChild(link);
+		   item.appendChild(document.createTextNode(" " + row.journey + " " + dt_formatter.format(row.date)));
+		   
+		   html_list.appendChild(item);
+               }
+
+	       html_results.appendChild(html_list);
+	       
+	       switch (count_results){
+		   case 1:
+		       fb.innerText = "Ready to search again.";
+		       break;
+		   default:		       
+		       fb.innerText = num_formatter.format(count_results) + " results. Ready to search again.";
+		       break;
+	       }
+	       
+	       return false;
+	   };
+	   
+       }).catch((err) => {
+	   var fb = document.getElementById("feedback");
+	   fb.innerText = "Failed to configure DuckDB: " + err;
+	   console.error("Failed to configure DuckDB", err);
+       });
+       
+    </script>
+  </body>
+</html>
