@@ -26,7 +26,7 @@ Then opening a web browser to `http://localhost:8080` you should see something l
 
 ![](docs/images/www-duckdb-wasm-local-launch.png)
 
-This will create and index a database table for performing full-text search of flights to and from SFO in January, 2025 using the [sfomuseum-data-flights-2025-01.parquet](https://static.sfomuseum.org/parquet/sfomuseum-data-flights-2025-01.parquet) database. Querying the data looks like this:
+This will create and index a database table for performing full-text search of flights to and from SFO in [January, 2025](https://millsfield.sfomuseum.org/flights/2025/01) using the [sfomuseum-data-flights-2025-01.parquet](https://static.sfomuseum.org/parquet/sfomuseum-data-flights-2025-01.parquet) database. Querying the data looks like this:
 
 ![](docs/images/www-duckdb-wasm-local-search.png)
 
@@ -35,6 +35,7 @@ That's all this website does. As mentioned before it is a "demonstration" websit
 ## Notes
 
 * All `*.wasm` files are tracked and stored using [git lfs](https://github.com/git-lfs/git-lfs).
+* Remember that the actual DuckDB WASM file is over 30MB so it's probably not something you want to serve in production traffic to the public internet (but if you do, you do).
 
 ## See also
 
