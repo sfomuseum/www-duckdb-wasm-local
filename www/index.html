@@ -70,17 +70,6 @@
        
        getDb().then(async (db) => {
 
-	   // Need to fix CORS stuff before this will work...
-	   
-	   /*
-	      fetch("https://static.sfomuseum.org/parquet/index.json").then((rsp) => {
-	      console.log("INDEX", rsp);
-	      }).catch((err) => {
-	      console.log("SAD", err);
-	      });
-	    */
-
-
 	   // en-CA is important in order to get YYYY-MM-dd formatting. Go, Canada!
 	   const dt_formatter = new Intl.DateTimeFormat('en-CA', {
 	       year: 'numeric',
