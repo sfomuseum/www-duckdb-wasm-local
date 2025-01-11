@@ -76,6 +76,11 @@
 	       var flight_urls = [];
 	       
 	       for (var i=0; i < count_data; i++){
+
+		   if (! data[i].name.startsWith("sfomuseum-data-flights-2024")){
+		       continue;
+		   }
+		       
 		   var url = "'https://static.sfomuseum.org/parquet/" + data[i].name + "'";
 		   flight_urls.push(url);
 	       }
@@ -98,7 +103,7 @@
 		   
 		   fb.innerText = "Setting up search table";
 		   
-		   await conn.query("CREATE TABLE search AS SELECT \"wof:id\" AS id, \"flysfo:journey\" AS journey, \"flysfo:flight_number\" AS flight_number, \"icao:aircraft\" AS aircraft, \"icao:airline\" AS airline, \"flysfo:date\" AS date FROM read_parquet([" + flight_urls.join(",") + "])");
+		   await conn.query("CREATE TABLE search AS SELECT \"wof:id\" AS id, \"flysfo:journey\" AS journey, \"flysfo:flight_number\" AS flight_number, \"icao:aircraft\" AS aircraft, \"icao:airline\" AS airline, \"flysfo:date\" AS date FROM read_parquet([" + flight_urls.join(",") + "], union_by_name=true)");
 		   
 		   fb.innerText = "Setting up database PRAGMA";	   
 		   
